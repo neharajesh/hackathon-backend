@@ -11,12 +11,14 @@ const RoomModel = new Schema({
   }],
   organizer: {
     type: Schema.Types.ObjectId,
-    required: true
+    required: true,
+    ref: "User"
   }, 
   participants: [{
     user: {
       type: Schema.Types.ObjectId,
-      required: true
+      required: true,
+      ref: "User"
     }, 
     type: {
       type: String, 

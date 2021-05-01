@@ -5,21 +5,22 @@ const lodash = require("lodash")
 const {extend} = lodash
 
 const { User } = require("../models/user-model");
+const { auth } = require("../middleware/auth");
 
-router.route("/")
-.get(async (req, res) => {
-  try {
-    const users = await User.find({});
-    res.status(200).json(users);
-  } catch (err) {
-    res.status(404).json({
-      success: false,
-      message: "Data could not be retrieved due to an error",
-      errMessage: err.message
-    })
-  }
-})
-.post(async (req, res) => {
+router.get("/auth", auth, (req, res) => {
+  res.status(200).json({
+    _id: req.user._id,
+    isAdmin: req.user.role === ("SuperAdmin" || "Admin") ? true : false,
+    isAuth: true,
+    name: req.user.name,
+    image: req.user.image,
+    currentChatroom: req.user.currentChatroom,
+    chatrooms: req.user.chatrooms,
+    interests: req.user.interests
+  });
+});
+
+router.post("/signup", async (req, res) => {
   try {
     const user = req.body
     const newUser = new User(user);
@@ -33,6 +34,53 @@ router.route("/")
     })
   }
 })
+
+
+router.post("/login", async (req, res) => {
+  try {
+    const user = await User.findOne({name: req.body.name});
+    if(!user) {
+      return res.status(404).json({
+        success: false,
+        message: "authentication failed"
+      })
+    }
+    const isMatch = user.comparePassword(req.body.password);
+    if(!isMatch) {
+      return res.status(404).json({
+        status: false,
+        message: "Wrong Password!"
+      })
+    }
+
+    user.generateToken(user => {
+      try {
+        res.cookie("w_auth", user.secret).status(200).json({
+          success: true,
+          message: "Login Successful"
+        })
+      } catch (err) {
+        res.status(404).json({
+          success: false,
+          message: "error occurred while logging in",
+          errMessage: err.message
+        })
+      }
+    })
+  } catch (err) {
+    res.status(404).json({ success: false, message: "an error occurred", errMessage: err.message})
+  }
+})
+
+router.get("/logout", auth, async (req, res) => {
+  try {
+    const user = await User.findOneAndUpdate({ _id: req.user._id }, 
+    {secret: ""})
+    return res.status(200).json({success: true})
+  } catch (err) {
+    console.log("error occurred while logging out", err.message);
+  }
+});
 
 router.param("id", async(req, res, next, id) => {
   try{
